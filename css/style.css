@@ -1,0 +1,77 @@
+/* Custom CSS pour améliorer le style du chatbot */
+#chat-container {
+  font-family: Arial, sans-serif;
+  padding: 10px;
+}
+
+/* Header du chat amélioré */
+#chat-window-header {
+  background-color: #6154c8;
+  color: white;
+  padding: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Style des messages dans le chat */
+.chat-message {
+  padding: 8px;
+  margin: 5px;
+  border-radius: 5px;
+  max-width: 80%;
+}
+.chat-message.bot {
+  background-color: #f1f1f1;
+  align-self: flex-start;
+}
+.chat-message.user {
+  background-color: #dcf8c6;
+  align-self: flex-end;
+}
+
+/* Bouton d'envoi personnalisé */
+#chat-send {
+  background-color: #6154c8;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* Style du bouton WhatsApp */
+#whatsapp-button-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+}
+#whatsapp-button {
+  background-color: #25D366;
+  border: none;
+  border-radius: 50px;
+  padding: 10px 15px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+#whatsapp-button .whatsapp-logo {
+  width: 24px;
+  height: 24px;
+  margin-right: 8px;
+}
+#whatsapp-button span {
+  color: white;
+  font-size: 14px;
+}
+
+/* Ajustements Responsive */
+@media (max-width: 767px) {
+  #chat-container {
+    display: none;
+  }
+  #whatsapp-button-container {
+    display: block;
+  }
+}
