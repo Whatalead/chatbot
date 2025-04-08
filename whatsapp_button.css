@@ -1,6 +1,0 @@
-.whatsapp-chat{position:fixed;bottom:15px;right:15px;z-index:10000;display:none}
-.whatsapp-chat a{display:inline-block;background-color:#25D366;color:#fff;text-decoration:none;padding:14px 22px;border-radius:50px;font-family:Arial,sans-serif;font-size:16px;box-shadow:0 2px 5px rgba(0,0,0,0.3);transition:background-color .3s}
-.whatsapp-chat a:hover{background-color:#1ebe5d}
-@media (max-width:767px){.whatsapp-chat{display:block}}
-@media (min-width:768px) and (max-width:1024px){.whatsapp-chat{bottom:18px;right:18px}.whatsapp-chat a{padding:12px 18px;font-size:15px}}
-@media (min-width:1025px){.whatsapp-chat{bottom:20px;right:20px}.whatsapp-chat a{padding:14px 22px;font-size:16px}}
