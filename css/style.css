@@ -12,6 +12,36 @@
   transition: opacity 0.3s ease;
 }
 
+/* Chat bubble (icône) */
+#chat-bubble {
+  width: 50px;
+  height: 50px;
+  background: #6154c8;
+  border-radius: 50%;
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 24px;
+}
+
+#chat-bubble.vibrate {
+  animation: vibrate 0.3s ease infinite;
+}
+
+@keyframes vibrate {
+  0% { transform: translate(0); }
+  20% { transform: translate(-2px, 2px); }
+  40% { transform: translate(-2px, -2px); }
+  60% { transform: translate(2px, 2px); }
+  80% { transform: translate(2px, -2px); }
+  100% { transform: translate(0); }
+}
+
 /* Header du chat */
 #chat-window-header {
   background: linear-gradient(135deg, #8b72f0, #6154c8);
@@ -70,6 +100,11 @@
 .chat-message.bot {
   background: #e9ecef;
   align-self: flex-start;
+}
+
+.chat-message.bot::before {
+  content: "...";
+  margin-right: 5px;
 }
 
 .chat-message.user {
