@@ -39,7 +39,7 @@
             botMessage.className = "chat-message bot";
             botMessage.textContent = data.reply || "Désolé, une erreur s'est produite.";
             chatBody.appendChild(botMessage);
-            chatBody.scrollTop = chatBody.scrollHeight; // Défilement automatique
+            chatBody.scrollTop = chatBody.scrollHeight;
           })
           .catch(err => console.error("Erreur lors de l'envoi du message:", err));
 
@@ -52,11 +52,14 @@
   function updateDisplay() {
     const isMobile = window.innerWidth <= 767;
     if (chatContainer && whatsappContainer) {
-      chatContainer.style.display = isMobile ? "none" : "block";
-      whatsappContainer.style.display = isMobile ? "block" : "none";
+      chatContainer.style.display = isMobile ? "none" : "block"; // Chatbot sur desktop
+      whatsappContainer.style.display = isMobile ? "block" : "none"; // WhatsApp sur mobile
+    } else {
+      console.error("Erreur : chatContainer ou whatsappContainer non trouvé(s)");
     }
   }
 
+  // Appliquer au chargement et au redimensionnement
   window.addEventListener("load", updateDisplay);
   window.addEventListener("resize", updateDisplay);
 })();
