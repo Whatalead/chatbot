@@ -1,72 +1,163 @@
-/* Custom CSS pour améliorer le style du chatbot */
+/* Style global */
 #chat-container {
-  font-family: Arial, sans-serif;
-  padding: 10px;
+  font-family: 'Arial', sans-serif;
+  padding: 15px;
+  max-width: 400px;
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: #fff;
+  border-radius: 15px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+  transition: opacity 0.3s ease;
 }
 
-/* Header du chat amélioré */
+/* Header du chat */
 #chat-window-header {
-  background-color: #6154c8;
+  background: linear-gradient(135deg, #8b72f0, #6154c8);
   color: white;
-  padding: 10px;
+  padding: 12px 15px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  border-radius: 12px 12px 0 0;
 }
 
-/* Style des messages dans le chat */
-.chat-message {
-  padding: 8px;
-  margin: 5px;
-  border-radius: 5px;
-  max-width: 80%;
+#chat-title {
+  margin: 0;
+  font-size: 18px;
 }
+
+#online-indicator {
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+#chat-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+#chat-close:hover {
+  transform: scale(1.2);
+}
+
+/* Corps du chat */
+#chat-window-body {
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 10px;
+  background: #f9f9f9;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-message {
+  padding: 10px;
+  margin: 5px 0;
+  border-radius: 8px;
+  max-width: 75%;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
 .chat-message.bot {
-  background-color: #f1f1f1;
+  background: #e9ecef;
   align-self: flex-start;
 }
+
 .chat-message.user {
-  background-color: #dcf8c6;
+  background: #dcf8c6;
   align-self: flex-end;
 }
 
-/* Bouton d'envoi personnalisé */
-#chat-send {
-  background-color: #6154c8;
-  color: white;
-  border: none;
-  padding: 8px 12px;
-  border-radius: 4px;
-  cursor: pointer;
+/* Pied du chat */
+#chat-window-footer {
+  display: flex;
+  padding: 10px;
+  border-top: 1px solid #eee;
 }
 
-/* Style du bouton WhatsApp */
+#chat-input {
+  flex-grow: 1;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  padding: 8px 15px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+#chat-input:focus {
+  border-color: #6154c8;
+}
+
+#chat-send {
+  background: #6154c8;
+  color: white;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 20px;
+  margin-left: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.3s;
+}
+
+#chat-send:hover {
+  background: #8b72f0;
+}
+
+#chat-footer-info {
+  text-align: center;
+  font-size: 12px;
+  color: #888;
+  padding: 5px;
+}
+
+/* Bouton WhatsApp */
 #whatsapp-button-container {
   position: fixed;
   bottom: 20px;
   right: 20px;
 }
+
 #whatsapp-button {
-  background-color: #25D366;
+  background: #25D366;
   border: none;
   border-radius: 50px;
-  padding: 10px 15px;
+  padding: 12px 20px;
   display: flex;
   align-items: center;
   cursor: pointer;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
-}
-#whatsapp-button .whatsapp-logo {
-  width: 24px;
-  height: 24px;
-  margin-right: 8px;
-}
-#whatsapp-button span {
-  color: white;
-  font-size: 14px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s, box-shadow 0.2s;
 }
 
-/* Ajustements Responsive */
+#whatsapp-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+}
+
+#whatsapp-button .whatsapp-logo {
+  width: 28px;
+  height: 28px;
+  margin-right: 10px;
+}
+
+#whatsapp-button span {
+  color: white;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+/* Responsive */
 @media (max-width: 767px) {
   #chat-container {
     display: none;
