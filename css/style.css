@@ -156,13 +156,3 @@
   font-size: 15px;
   font-weight: 500;
 }
-
-/* Responsive */
-@media (max-width: 767px) {
-  #chat-container {
-    display: none;
-  }
-  #whatsapp-button-container {
-    display: block;
-  }
-}
