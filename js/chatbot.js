@@ -4,10 +4,7 @@
   if (chatTitle) {
     chatTitle.textContent = ChatbotConfig.chatbotName;
   }
-  const chatContainer = document.getElementById("chat-container");
-  if (chatContainer) {
-    chatContainer.style.backgroundImage = ChatbotConfig.chatbotColorGradient;
-  }
+  document.getElementById("chat-container").style.backgroundImage = ChatbotConfig.chatbotColorGradient;
 
   // Définir le message initial dans la fenêtre de chat
   const chatBody = document.getElementById("chat-window-body");
@@ -53,22 +50,17 @@
     }
   });
 
-  // Gestion de l'affichage pour mobile et desktop via window.matchMedia
+  // Gestion de l'affichage pour mobile
   function updateDisplay() {
-    const isMobile = window.matchMedia("(max-width: 767px)").matches;
+    const isMobile = window.innerWidth <= 767;
     const chatContainer = document.getElementById("chat-container");
     const whatsappContainer = document.getElementById("whatsapp-button-container");
 
-    if (chatContainer) {
+    if (chatContainer && whatsappContainer) {
       chatContainer.style.display = isMobile ? "none" : "block";
-    }
-    if (whatsappContainer) {
       whatsappContainer.style.display = isMobile ? "block" : "none";
     }
   }
-
-  // Exécute dès que le DOM est prêt
-  document.addEventListener("DOMContentLoaded", updateDisplay);
-  // Et réajuste lors du redimensionnement de la fenêtre
+  window.addEventListener("load", updateDisplay);
   window.addEventListener("resize", updateDisplay);
 })();
