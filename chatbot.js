@@ -83,8 +83,20 @@
         };
         const runWhatsAppTimers = () => {
              clearTimers(); if (!Config.GlobalConfig.enableWhatsApp) return;
-             if (Config.WhatsAppUIConfig.whatsappHelpText) { whatsappTimerId = setTimeout(() => { whatsappTextEl.textContent = Config.WhatsAppUIConfig.whatsappHelpText; whatsappTextEl.style.display = "block"; if (Config.WhatsAppUIConfig.whatsappHelpDisplayDuration > 0) { whatsappHideTimerId = setTimeout(() => { whatsappTextEl.style.display = "none"; }, Config.WhatsAppUIConfig.whatsappHelpDisplayDuration); } }, Config.WhatsAppUIConfig.whatsappHelpDelay); } else { whatsappTextEl.style.display = 'none'; }
-             if (Config.WhatsAppUIConfig.whatsappBadgeContent) { setTimeout(() => { whatsappBadgeEl.textContent = Config.WhatsAppUIConfig.whatsappBadgeContent; whatsappBadgeEl.style.display = "block"; }, Config.WhatsAppUIConfig.whatsappHelpDelay); } else { whatsappBadgeEl.style.display = 'none'; }
+             if (Config.WhatsAppUIConfig.whatsappHelpText) {
+                 whatsappTimerId = setTimeout(() => {
+                     whatsappTextEl.textContent = Config.WhatsAppUIConfig.whatsappHelpText; // Définit le texte
+                     whatsappTextEl.style.fontWeight = 'bold'; // *** Met le texte en gras ***
+                     whatsappTextEl.style.display = "block"; // Affiche l'élément
+                     if (Config.WhatsAppUIConfig.whatsappHelpDisplayDuration > 0) {
+                         whatsappHideTimerId = setTimeout(() => {
+                             whatsappTextEl.style.display = "none";
+                         }, Config.WhatsAppUIConfig.whatsappHelpDisplayDuration);
+                     }
+                 }, Config.WhatsAppUIConfig.whatsappHelpDelay);
+             } else {
+                 whatsappTextEl.style.display = 'none'; // Assure qu'il est caché s'il n'y a pas de texte
+             }             if (Config.WhatsAppUIConfig.whatsappBadgeContent) { setTimeout(() => { whatsappBadgeEl.textContent = Config.WhatsAppUIConfig.whatsappBadgeContent; whatsappBadgeEl.style.display = "block"; }, Config.WhatsAppUIConfig.whatsappHelpDelay); } else { whatsappBadgeEl.style.display = 'none'; }
         };
         const updateWidgetVisibility = () => {
             if (isChatOpen) return;
