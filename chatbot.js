@@ -52,64 +52,200 @@
         const Config = mergeDeep(DEFAULTS, userConfig);
         console.log("Whatalead Config:", Config);
 
+        // --- Vérifications Configuration ---
         if (Config.GlobalConfig.enableChatbot && (!Config.ChatbotUIConfig.initialWebhookURL || !Config.ChatbotUIConfig.messageWebhookURL)) { console.error("Whatalead Chatbot: Webhooks manquants. Chatbot désactivé."); Config.GlobalConfig.enableChatbot = false; }
         if (Config.GlobalConfig.enableWhatsApp && !Config.WhatsAppUIConfig.whatsappPhoneNumber) { console.error("Whatalead Chatbot: Numéro WhatsApp manquant. WhatsApp désactivé."); Config.GlobalConfig.enableWhatsApp = false; }
         if (!Config.GlobalConfig.enableChatbot && !Config.GlobalConfig.enableWhatsApp) { console.log("Whatalead Widget: Arrêt car rien n'est activé."); return; }
 
+        // --- Injection Dépendances et Styles ---
         if (!document.querySelector('link[href*="font-awesome"]')) { const faLink = document.createElement('link'); faLink.rel = 'stylesheet'; faLink.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css'; document.head.appendChild(faLink); }
-
         const styleElement = document.createElement('style'); styleElement.textContent = WIDGET_CSS; document.head.appendChild(styleElement);
         const root = document.documentElement;
         for (const [key, value] of Object.entries(Config.ColorConfig)) { if (value && DEFAULTS.ColorConfig.hasOwnProperty(key)) { root.style.setProperty(key, value); } }
 
+        // --- Injection HTML ---
         const widgetContainer = document.createElement('div'); widgetContainer.id = 'whatalead-widget-container'; widgetContainer.innerHTML = WIDGET_HTML; document.body.appendChild(widgetContainer);
 
+        // --- Références DOM ---
         const chatContainer = document.getElementById("chat-container"), chatBubble = document.getElementById("chat-bubble"), chatClose = document.getElementById("chat-close"), chatTitle = document.getElementById("chat-title"), chatAvatar = document.getElementById("chat-header-avatar"), chatInput = document.getElementById("chat-input"), chatSend = document.getElementById("chat-send"), chatBody = document.getElementById("chat-window-body"), helpTextEl = document.getElementById("help-text"), notificationBadgeEl = document.getElementById("notification-badge"), whatsappButtonContainer = document.getElementById("whatsapp-button-container"), whatsappTextEl = document.getElementById("whatsapp-text"), whatsappButton = document.getElementById("whatsapp-button"), whatsappBadgeEl = document.getElementById("whatsapp-badge");
         if (!chatContainer || !chatBubble || !whatsappButtonContainer) { console.error("Whatalead Widget: Échec création HTML. Arrêt."); if (widgetContainer) document.body.removeChild(widgetContainer); if (styleElement) document.head.removeChild(styleElement); return; }
 
-        let conversationId = null, chatHistory = [], activeMode = 'none', helpTextTimerId = null, helpTextHideTimerId = null, whatsappTimerId = null, whatsappHideTimerId = null, isChatOpen = false;
+        // --- Variables d'état ---
+        let conversationId = null;
+        let chatHistory = [];
+        let activeMode = 'none';
+        let helpTextTimerId = null;
+        let helpTextHideTimerId = null;
+        let whatsappTimerId = null;
+        let whatsappHideTimerId = null;
+        let isChatOpen = false;
+        let isWhatsAppHelpSequenceActive = false; // <<<--- DRAPEAU AJOUTÉ
+
+        // --- Détermination Mode Actif ---
         if (Config.GlobalConfig.enableChatbot && Config.GlobalConfig.enableWhatsApp) activeMode = 'both'; else if (Config.GlobalConfig.enableChatbot) activeMode = 'chatbot_only'; else if (Config.GlobalConfig.enableWhatsApp) activeMode = 'whatsapp_only';
         console.log("Whatalead Widget - Mode:", activeMode);
 
+        // --- Initialisation Session Chat (si nécessaire) ---
         if (activeMode === 'chatbot_only' || activeMode === 'both') { conversationId = await initializeChatSession(Config.ChatbotUIConfig.initialWebhookURL); if (conversationId) { chatHistory = loadChatHistory(); } else { console.warn("Whatalead Chatbot: ID session non obtenu."); } }
 
+        // --- Fonctions UI ---
         const initChatbotUI = () => { chatTitle.textContent = Config.ChatbotUIConfig.chatbotName || ''; if (Config.ChatbotUIConfig.avatarURL) { chatAvatar.src = Config.ChatbotUIConfig.avatarURL; chatAvatar.style.display = 'block'; } else { chatAvatar.style.display = 'none'; } };
-        const initWhatsAppUI = () => {};
-        const clearTimers = () => { if (helpTextTimerId) clearTimeout(helpTextTimerId); if (helpTextHideTimerId) clearTimeout(helpTextHideTimerId); if (whatsappTimerId) clearTimeout(whatsappTimerId); if (whatsappHideTimerId) clearTimeout(whatsappHideTimerId); helpTextTimerId = helpTextHideTimerId = whatsappTimerId = whatsappHideTimerId = null; };
+        const initWhatsAppUI = () => {}; // Rien de spécifique ici pour le moment
+
+        // --- Gestion des Timers (modifiée) ---
+        const clearTimers = () => {
+            console.log("Clearing timers..."); // Debug
+            if (helpTextTimerId) clearTimeout(helpTextTimerId);
+            if (helpTextHideTimerId) clearTimeout(helpTextHideTimerId);
+            if (whatsappTimerId) clearTimeout(whatsappTimerId);
+            if (whatsappHideTimerId) clearTimeout(whatsappHideTimerId);
+            helpTextTimerId = helpTextHideTimerId = whatsappTimerId = whatsappHideTimerId = null;
+            // Réinitialiser aussi les flags de séquence si nécessaire
+            isWhatsAppHelpSequenceActive = false; // <<<--- RÉINITIALISATION DU DRAPEAU
+            // isChatbotHelpSequenceActive = false; // Si on ajoutait un flag similaire pour le chatbot
+            console.log("Timers cleared. WhatsApp sequence inactive."); // Debug
+        };
+
         const runChatbotTimers = () => {
-            clearTimers(); if (!Config.GlobalConfig.enableChatbot || isChatOpen) return;
-            if (Config.ChatbotUIConfig.helpText) { helpTextTimerId = setTimeout(() => { if (isChatOpen) return; helpTextEl.textContent = Config.ChatbotUIConfig.helpText; helpTextEl.style.display = "block"; if (Config.ChatbotUIConfig.helpTextDisplayDuration > 0) { helpTextHideTimerId = setTimeout(() => { helpTextEl.style.display = "none"; }, Config.ChatbotUIConfig.helpTextDisplayDuration); } }, Config.ChatbotUIConfig.helpTextDelay); } else { helpTextEl.style.display = 'none'; }
-            if (Config.ChatbotUIConfig.badgeContent) { setTimeout(() => { if (isChatOpen) return; notificationBadgeEl.textContent = Config.ChatbotUIConfig.badgeContent; notificationBadgeEl.style.display = "block"; }, Config.ChatbotUIConfig.helpTextDelay); } else { notificationBadgeEl.style.display = 'none'; }
+            // Note: Pour une robustesse similaire, on pourrait ajouter un flag 'isChatbotHelpSequenceActive' ici
+            clearTimers(); // Assure qu'une seule séquence (chatbot ou WA) tourne à la fois
+            if (!Config.GlobalConfig.enableChatbot || isChatOpen) return;
+
+            if (Config.ChatbotUIConfig.helpText) {
+                helpTextTimerId = setTimeout(() => {
+                    if (isChatOpen) return;
+                    helpTextEl.textContent = Config.ChatbotUIConfig.helpText;
+                    helpTextEl.style.display = "block";
+                    if (Config.ChatbotUIConfig.helpTextDisplayDuration > 0) {
+                        helpTextHideTimerId = setTimeout(() => { helpTextEl.style.display = "none"; }, Config.ChatbotUIConfig.helpTextDisplayDuration);
+                    }
+                }, Config.ChatbotUIConfig.helpTextDelay);
+            } else {
+                helpTextEl.style.display = 'none';
+            }
+
+            if (Config.ChatbotUIConfig.badgeContent) {
+                setTimeout(() => {
+                    if (isChatOpen) return;
+                    notificationBadgeEl.textContent = Config.ChatbotUIConfig.badgeContent;
+                    notificationBadgeEl.style.display = "block";
+                }, Config.ChatbotUIConfig.helpTextDelay);
+            } else {
+                notificationBadgeEl.style.display = 'none';
+            }
         };
+
         const runWhatsAppTimers = () => {
-             clearTimers(); if (!Config.GlobalConfig.enableWhatsApp) return;
-             if (Config.WhatsAppUIConfig.whatsappHelpText) {
-                 whatsappTimerId = setTimeout(() => {
-                     whatsappTextEl.textContent = Config.WhatsAppUIConfig.whatsappHelpText; // Définit le texte
-                     whatsappTextEl.style.fontWeight = 'bold'; // *** Met le texte en gras ***
-                     whatsappTextEl.style.display = "block"; // Affiche l'élément
-                     if (Config.WhatsAppUIConfig.whatsappHelpDisplayDuration > 0) {
-                         whatsappHideTimerId = setTimeout(() => {
-                             whatsappTextEl.style.display = "none";
-                         }, Config.WhatsAppUIConfig.whatsappHelpDisplayDuration);
-                     }
-                 }, Config.WhatsAppUIConfig.whatsappHelpDelay);
-             } else {
-                 whatsappTextEl.style.display = 'none'; // Assure qu'il est caché s'il n'y a pas de texte
-             }             if (Config.WhatsAppUIConfig.whatsappBadgeContent) { setTimeout(() => { whatsappBadgeEl.textContent = Config.WhatsAppUIConfig.whatsappBadgeContent; whatsappBadgeEl.style.display = "block"; }, Config.WhatsAppUIConfig.whatsappHelpDelay); } else { whatsappBadgeEl.style.display = 'none'; }
+            // --- Vérification du Drapeau ---
+            if (isWhatsAppHelpSequenceActive) {
+                console.log("WhatsApp help sequence already active, skipping."); // Debug
+                return; // Séquence déjà en cours
+            }
+            // --- Fin Vérification ---
+
+            clearTimers(); // Assure qu'une seule séquence tourne et réinitialise les flags
+            if (!Config.GlobalConfig.enableWhatsApp) return;
+
+            // Lancer la séquence pour le texte d'aide
+            if (Config.WhatsAppUIConfig.whatsappHelpText) {
+                console.log("Starting new WhatsApp help sequence..."); // Debug
+                isWhatsAppHelpSequenceActive = true; // <<<--- MARQUER COMME ACTIVE
+
+                whatsappTimerId = setTimeout(() => {
+                    // Vérifier si la séquence n'a pas été annulée entre temps
+                    if (!isWhatsAppHelpSequenceActive) {
+                         console.log("WhatsApp sequence was cancelled before text display."); // Debug
+                         return;
+                    }
+                    console.log("WhatsApp help timer fired. Displaying text."); // Debug
+                    whatsappTextEl.textContent = Config.WhatsAppUIConfig.whatsappHelpText;
+                    whatsappTextEl.style.fontWeight = 'bold'; // Appliquer le gras
+                    whatsappTextEl.style.display = "block";
+
+                    // Gérer la disparition et la fin de la séquence
+                    if (Config.WhatsAppUIConfig.whatsappHelpDisplayDuration > 0) {
+                        whatsappHideTimerId = setTimeout(() => {
+                             // Vérifier à nouveau si annulée
+                             if (!isWhatsAppHelpSequenceActive) {
+                                console.log("WhatsApp sequence was cancelled before hiding text."); // Debug
+                                return;
+                             }
+                            console.log("Hiding WhatsApp help text and ending sequence."); // Debug
+                            whatsappTextEl.style.display = "none";
+                            isWhatsAppHelpSequenceActive = false; // <<<--- MARQUER COMME TERMINÉE
+                        }, Config.WhatsAppUIConfig.whatsappHelpDisplayDuration);
+                    } else {
+                        // Si durée 0, reste affiché. La séquence reste 'active' jusqu'à clearTimers.
+                        console.log("WhatsApp help text stays visible. Sequence active until cleared."); // Debug
+                    }
+                }, Config.WhatsAppUIConfig.whatsappHelpDelay);
+            } else {
+                // S'il n'y a pas de texte, la séquence n'est pas active
+                whatsappTextEl.style.display = 'none';
+                isWhatsAppHelpSequenceActive = false;
+            }
+
+            // Gérer le badge (indépendamment de la séquence du texte pour l'instant)
+            if (Config.WhatsAppUIConfig.whatsappBadgeContent) {
+                // Ce timer est indépendant du flag pour le moment
+                setTimeout(() => {
+                    // On pourrait vérifier le flag ici si le badge ne doit apparaître qu'avec le texte
+                    // if (!isWhatsAppHelpSequenceActive) return;
+                    whatsappBadgeEl.textContent = Config.WhatsAppUIConfig.whatsappBadgeContent;
+                    whatsappBadgeEl.style.display = "block";
+                }, Config.WhatsAppUIConfig.whatsappHelpDelay);
+            } else {
+                whatsappBadgeEl.style.display = 'none';
+            }
         };
+
+        // --- Gestion de la Visibilité ---
         const updateWidgetVisibility = () => {
-            if (isChatOpen) return;
+            if (isChatOpen) return; // Ne pas interférer si le chat est ouvert
+
             const isCurrentlyMobile = window.innerWidth <= 600;
-            console.log(`Visibilité - Mode: ${activeMode}, Mobile: ${isCurrentlyMobile}`);
-            chatBubble.style.display = 'none'; whatsappButtonContainer.style.display = 'none'; helpTextEl.style.display = 'none'; whatsappTextEl.style.display = 'none'; notificationBadgeEl.style.display = 'none'; whatsappBadgeEl.style.display = 'none'; clearTimers();
+            // Inutile de logguer à chaque micro-mouvement, peut-être juste au changement d'état ?
+            // console.log(`Visibilité - Mode: ${activeMode}, Mobile: ${isCurrentlyMobile}`);
+
+            // Cacher tout par défaut AVANT d'appeler clearTimers
+            // pour éviter que clearTimers n'efface un timer qui vient juste d'être lancé par la branche active
+            chatBubble.style.display = 'none';
+            whatsappButtonContainer.style.display = 'none';
+            helpTextEl.style.display = 'none';
+            whatsappTextEl.style.display = 'none';
+            notificationBadgeEl.style.display = 'none';
+            whatsappBadgeEl.style.display = 'none';
+
+            clearTimers(); // Nettoyer tous les timers et flags de séquence précédents
+
+            // Décider quoi afficher et lancer les nouveaux timers
             switch (activeMode) {
-                case 'chatbot_only': initChatbotUI(); chatBubble.style.display = 'flex'; runChatbotTimers(); break;
-                case 'whatsapp_only': initWhatsAppUI(); whatsappButtonContainer.style.display = 'flex'; runWhatsAppTimers(); break;
-                case 'both': initChatbotUI(); initWhatsAppUI(); if (isCurrentlyMobile) { whatsappButtonContainer.style.display = 'flex'; runWhatsAppTimers(); } else { chatBubble.style.display = 'flex'; runChatbotTimers(); } break;
-                case 'none': default: break;
+                case 'chatbot_only':
+                    initChatbotUI();
+                    chatBubble.style.display = 'flex';
+                    runChatbotTimers(); // Lance les timers pour le chatbot
+                    break;
+                case 'whatsapp_only':
+                    initWhatsAppUI();
+                    whatsappButtonContainer.style.display = 'flex';
+                    runWhatsAppTimers(); // Lance les timers pour WhatsApp
+                    break;
+                case 'both':
+                    initChatbotUI();
+                    initWhatsAppUI();
+                    if (isCurrentlyMobile) {
+                        whatsappButtonContainer.style.display = 'flex';
+                        runWhatsAppTimers(); // Lance les timers pour WhatsApp sur mobile
+                    } else {
+                        chatBubble.style.display = 'flex';
+                        runChatbotTimers(); // Lance les timers pour le chatbot sur desktop
+                    }
+                    break;
+                case 'none': default: break; // Rien à afficher
             }
          };
+
+        // --- Fonctions Gestion Chat --- (inchangées)
         const scrollToBottom = () => { setTimeout(() => { if(chatBody) chatBody.scrollTop = chatBody.scrollHeight; }, 50); };
         const appendMessage = (text, type, skipAnimation = false) => { if (!chatBody || !text) return; const d = document.createElement("div"); const c = type === 'user' ? 'user-message' : 'bot-message'; d.classList.add(c); d.textContent = text; if (skipAnimation) d.style.animation = 'none'; chatBody.appendChild(d); scrollToBottom(); };
         const showTypingIndicator = () => { if (!chatBody || chatBody.querySelector('.typing-indicator')) return; const d = document.createElement("div"); d.classList.add("bot-message", "typing-indicator"); d.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>'; chatBody.appendChild(d); scrollToBottom(); };
@@ -128,20 +264,47 @@
              finally { chatInput.disabled = false; chatSend.disabled = false; chatInput.focus(); }
          };
 
+        // --- Listeners d'Événements ---
         if (activeMode === 'chatbot_only' || activeMode === 'both') {
-            chatBubble.addEventListener("click", () => { clearTimers(); helpTextEl.style.display = 'none'; notificationBadgeEl.style.display = 'none'; isChatOpen = true; populateChatFromHistory(); chatContainer.style.display = "flex"; void chatContainer.offsetWidth; chatContainer.classList.add("active"); chatBubble.style.display = "none"; if (whatsappButtonContainer) whatsappButtonContainer.style.display = 'none'; if (whatsappTextEl) whatsappTextEl.style.display = 'none'; setTimeout(() => { chatInput.focus(); }, 350); });
-            chatClose.addEventListener("click", () => { isChatOpen = false; chatContainer.classList.remove("active"); setTimeout(() => { chatContainer.style.display = "none"; updateWidgetVisibility(); }, parseFloat(root.style.getPropertyValue('--transition-duration') || '0.3') * 1000); });
+            chatBubble.addEventListener("click", () => {
+                console.log("Chat bubble clicked."); // Debug
+                clearTimers(); // <<<--- Interrompt toute séquence d'aide
+                helpTextEl.style.display = 'none'; notificationBadgeEl.style.display = 'none';
+                isChatOpen = true; populateChatFromHistory(); chatContainer.style.display = "flex"; void chatContainer.offsetWidth; chatContainer.classList.add("active");
+                chatBubble.style.display = "none"; if (whatsappButtonContainer) whatsappButtonContainer.style.display = 'none'; if (whatsappTextEl) whatsappTextEl.style.display = 'none';
+                setTimeout(() => { chatInput.focus(); }, 350);
+            });
+            chatClose.addEventListener("click", () => {
+                console.log("Chat close clicked."); // Debug
+                isChatOpen = false; chatContainer.classList.remove("active");
+                setTimeout(() => {
+                    chatContainer.style.display = "none";
+                    updateWidgetVisibility(); // Réaffiche le bon bouton et relance les timers si besoin
+                }, parseFloat(root.style.getPropertyValue('--transition-duration') || '0.3') * 1000);
+            });
             chatSend.addEventListener("click", sendMessage);
             chatInput.addEventListener("keypress", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
         }
-        if (activeMode === 'whatsapp_only' || activeMode === 'both') { whatsappButton.addEventListener("click", () => { clearTimers(); whatsappTextEl.style.display = 'none'; whatsappBadgeEl.style.display = 'none'; const phone = Config.WhatsAppUIConfig.whatsappPhoneNumber.replace(/\D/g, ''); const message = encodeURIComponent(Config.WhatsAppUIConfig.whatsappMessage || ''); window.open(`https://wa.me/${phone}?text=${message}`, "_blank"); }); }
+        if (activeMode === 'whatsapp_only' || activeMode === 'both') {
+            whatsappButton.addEventListener("click", () => {
+                console.log("WhatsApp button clicked."); // Debug
+                clearTimers(); // <<<--- Interrompt toute séquence d'aide et réinitialise le flag
+                whatsappTextEl.style.display = 'none'; whatsappBadgeEl.style.display = 'none';
+                const phone = Config.WhatsAppUIConfig.whatsappPhoneNumber.replace(/\D/g, '');
+                const message = encodeURIComponent(Config.WhatsAppUIConfig.whatsappMessage || '');
+                window.open(`https://wa.me/${phone}?text=${message}`, "_blank");
+            });
+        }
 
-        updateWidgetVisibility();
-        window.addEventListener('resize', debounce(updateWidgetVisibility, 250));
+        // --- Initialisation & Resize Listener ---
+        updateWidgetVisibility(); // Appel initial pour afficher le bon widget
+        window.addEventListener('resize', debounce(updateWidgetVisibility, 250)); // Gère les changements de taille d'écran
+
         console.log("Whatalead Widget Initialisé.");
-    }
+    } // --- Fin de initializeWidget ---
 
+    // --- Lancement ---
     if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', initializeWidget); }
     else { initializeWidget(); }
 
-})();
+})(); // --- Fin de l'IIFE ---
