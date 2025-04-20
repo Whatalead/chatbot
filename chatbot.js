@@ -58,11 +58,17 @@
         @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css'); /* Ajout dynamique de FA */
 
         #whatsapp-button .wab-icon::before {
-           font-family: "Font Awesome 5 Brands"; /* Utilise Font Awesome Brands */
-           content: "\\f232"; /* Code Unicode pour l'icône WhatsApp */
-           font-weight: 400; /* ou 900 pour solid si vous préférez */
+           font-family: "Font Awesome 5 Brands";
+           content: "\\f232";
+           font-weight: 400;
            font-size: 32px;
            color: white;
+           /* Ajouts pour contrer les conflits potentiels */
+           border: none;
+           outline: none;
+           text-shadow: none;
+           box-shadow: none; /* Au cas où */
+           background: none; /* Au cas où */
         }
 
         /* --- Styles CSS (inchangés, mais placés ici) --- */
