@@ -1,7 +1,7 @@
 // chatbot.js
 (function() {
   // 1) Injection dynamique du CSS
-  var css = `
+  const css = `
 :root {
   --bubble-gradient-start: #007BFF;
   --bubble-gradient-end: #00C6FF;
@@ -66,12 +66,12 @@ body { font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:#
 #whatsapp-button i { font-size:32px; color:#fff; }
 #whatsapp-badge { display:none; position:absolute; top:-5px; right:-5px; width:22px; height:22px; background:#DC3545; color:#fff; font-size:12px; text-align:center; line-height:22px; border-radius:50%; font-weight:bold; box-shadow:0 2px 5px rgba(0,0,0,0.2); animation:pulse 1.5s infinite; }
 `;
-  var style = document.createElement('style');
-  style.textContent = css;
-  document.head.appendChild(style);
+  const styleEl = document.createElement('style');
+  styleEl.textContent = css;
+  document.head.appendChild(styleEl);
 
   // 2) Injection de l'HTML
-  var html = `
+  const html = `
 <div id="chat-container">
   <div id="chat-window">
     <div id="chat-window-header">
@@ -109,46 +109,101 @@ body { font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:#
 `;
   document.body.insertAdjacentHTML('beforeend', html);
 
-  // 3) Toute la logique (identique à votre code, mais en retirant les booléens)
-  function loadChatHistory() { /* … */ }
-  function saveChatHistory(h) { /* … */ }
-  async function initializeChatSession(url) { /* … */ }
-  function debounce(fn, w) { /* … */ }
+  // 3) Utilitaires
+  function loadChatHistory() {
+    const h = sessionStorage.getItem('chatHistory');
+    return h ? JSON.parse(h) : [];
+  }
+  function saveChatHistory(history) {
+    sessionStorage.setItem('chatHistory', JSON.stringify(history));
+  }
+  async function initializeChatSession(initialWebhookURL) {
+    console.log("Init session…");
+    let cid = sessionStorage.getItem('websiteConvId');
+    const payload = { current_webpage: window.location.href };
+    if (cid) {
+      console.log("ID existant:", cid);
+      payload.websiteConvId = cid;
+    } else {
+      console.log("Nouvel ID");
+    }
+    try {
+      const resp = await fetch(initialWebhookURL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json','Accept': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status} init.`);
+      if (!cid) {
+        const data = await resp.json();
+        if (data && data.websiteConvId) {
+          cid = data.websiteConvId;
+          sessionStorage.setItem('websiteConvId', cid);
+          console.log("ID reçu:", cid);
+        } else {
+          console.error("ID manquant.");
+          return null;
+        }
+      } else {
+        console.log("Init avec ID existant.");
+      }
+    } catch (e) {
+      console.error("Erreur init session:", e);
+      return sessionStorage.getItem('websiteConvId');
+    }
+    return cid;
+  }
+  function debounce(func, wait) {
+    let timeout;
+    return function(...args) {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+  }
 
-  document.addEventListener("DOMContentLoaded", async function() {
-    // Récupération des éléments…
-    var chatContainer = document.getElementById("chat-container");
-    var chatBubble    = document.getElementById("chat-bubble");
-    var chatClose     = document.getElementById("chat-close");
-    var chatTitle     = document.getElementById("chat-title");
-    var chatAvatar    = document.getElementById("chat-header-avatar");
-    var chatBody      = document.getElementById("chat-window-body");
-    var chatInput     = document.getElementById("chat-input");
-    var chatSend      = document.getElementById("chat-send");
-    var helpTextEl    = document.getElementById("help-text");
-    var notifBadge    = document.getElementById("notification-badge");
-    var waContainer   = document.getElementById("whatsapp-button-container");
-    var waText        = document.getElementById("whatsapp-text");
-    var waButton      = document.getElementById("whatsapp-button");
-    var waBadge       = document.getElementById("whatsapp-badge");
+  // 4) Logique principale
+  document.addEventListener("DOMContentLoaded", async () => {
+    // DOM refs
+    const chatContainer = document.getElementById("chat-container");
+    const chatBubble    = document.getElementById("chat-bubble");
+    const chatClose     = document.getElementById("chat-close");
+    const chatTitle     = document.getElementById("chat-title");
+    const chatAvatar    = document.getElementById("chat-header-avatar");
+    const chatBody      = document.getElementById("chat-window-body");
+    const chatInput     = document.getElementById("chat-input");
+    const chatSend      = document.getElementById("chat-send");
+    const helpTextEl    = document.getElementById("help-text");
+    const notifBadge    = document.getElementById("notification-badge");
+    const waContainer   = document.getElementById("whatsapp-button-container");
+    const waText        = document.getElementById("whatsapp-text");
+    const waButton      = document.getElementById("whatsapp-button");
+    const waBadge       = document.getElementById("whatsapp-badge");
 
-    // Init des variables
-    var activeMode = GlobalConfig.enableChatbot && GlobalConfig.enableWhatsApp ? "both"
-                   : GlobalConfig.enableChatbot ? "chatbot_only"
-                   : GlobalConfig.enableWhatsApp ? "whatsapp_only" : "none";
-    var conversationId = null, chatHistory = [],
-        helpTimer, helpHideTimer, waTimer, waHideTimer;
+    // State
+    let conversationId = null;
+    let chatHistory    = [];
+    let activeMode     = GlobalConfig.enableChatbot && GlobalConfig.enableWhatsApp
+                         ? "both"
+                         : GlobalConfig.enableChatbot
+                           ? "chatbot_only"
+                           : GlobalConfig.enableWhatsApp
+                             ? "whatsapp_only"
+                             : "none";
+    let tHelpShow, tHelpHide, tWaShow, tWaHide;
 
-    // 1) Initialisation session chatbot si besoin
-    if (activeMode==="chatbot_only"||activeMode==="both") {
+    // Initialize chatbot session if needed
+    if (activeMode === "chatbot_only" || activeMode === "both") {
       conversationId = await initializeChatSession(ChatbotUIConfig.initialWebhookURL);
       if (conversationId) chatHistory = loadChatHistory();
+      else console.error("Échec initialisation ID conversation.");
     }
 
-    // 2) Fonctions utilitaires d'UI
+    // UI inits
     function initChatbotUI() {
-      if (ChatbotUIConfig.chatbotName) chatTitle.textContent = ChatbotUIConfig.chatbotName;
-      if (ChatbotUIConfig.showAvatar && ChatbotUIConfig.avatarURL) {
+      if (ChatbotUIConfig.chatbotName) {
+        chatTitle.textContent = ChatbotUIConfig.chatbotName;
+      }
+      if (ChatbotUIConfig.avatarURL) {
         chatAvatar.src = ChatbotUIConfig.avatarURL;
         chatAvatar.style.display = "block";
       }
@@ -160,88 +215,213 @@ body { font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:#
       }
     }
     function initWhatsAppUI() {
-      if (WhatsAppUIConfig.whatsappHelpText) waText.textContent = WhatsAppUIConfig.whatsappHelpText;
-      if (WhatsAppUIConfig.whatsappBadgeContent) waBadge.textContent = WhatsAppUIConfig.whatsappBadgeContent;
+      if (WhatsAppUIConfig.whatsappHelpText) {
+        waText.textContent = WhatsAppUIConfig.whatsappHelpText;
+      }
+      if (WhatsAppUIConfig.whatsappBadgeContent) {
+        waBadge.textContent = WhatsAppUIConfig.whatsappBadgeContent;
+      }
     }
-    function clearTimers() {
-      clearTimeout(helpTimer); clearTimeout(helpHideTimer);
-      clearTimeout(waTimer);    clearTimeout(waHideTimer);
+
+    // Timers
+    function clearAllTimers() {
+      clearTimeout(tHelpShow); clearTimeout(tHelpHide);
+      clearTimeout(tWaShow);    clearTimeout(tWaHide);
     }
     function runChatbotTimers() {
+      clearAllTimers();
       if (!ChatbotUIConfig.helpText) return;
-      helpTimer = setTimeout(function(){
+      tHelpShow = setTimeout(() => {
         helpTextEl.style.display = "block";
-        if (ChatbotUIConfig.badgeContent) notifBadge.style.display = "block";
+        if (ChatbotUIConfig.badgeContent) {
+          notifBadge.style.display = "block";
+        }
         if (ChatbotUIConfig.helpTextDisplayDuration > 0) {
-          helpHideTimer = setTimeout(()=> helpTextEl.style.display="none",
-                                     ChatbotUIConfig.helpTextDisplayDuration);
+          tHelpHide = setTimeout(() => {
+            helpTextEl.style.display = "none";
+          }, ChatbotUIConfig.helpTextDisplayDuration);
         }
       }, ChatbotUIConfig.helpTextDelay);
     }
     function runWhatsAppTimers() {
+      clearAllTimers();
       if (!WhatsAppUIConfig.whatsappHelpText) return;
-      waTimer = setTimeout(function(){
+      tWaShow = setTimeout(() => {
         waText.style.display = "block";
-        if (WhatsAppUIConfig.whatsappBadgeContent) waBadge.style.display = "block";
+        if (WhatsAppUIConfig.whatsappBadgeContent) {
+          waBadge.style.display = "block";
+        }
         if (WhatsAppUIConfig.whatsappHelpDisplayDuration > 0) {
-          waHideTimer = setTimeout(()=> waText.style.display="none",
-                                    WhatsAppUIConfig.whatsappHelpDisplayDuration);
+          tWaHide = setTimeout(() => {
+            waText.style.display = "none";
+          }, WhatsAppUIConfig.whatsappHelpDisplayDuration);
         }
       }, WhatsAppUIConfig.whatsappHelpDelay);
     }
 
-    // 3) Gestion de la visibilité
-    function updateWidgetVisibility(){
-      var mobile = window.innerWidth <= 600;
-      [chatBubble, waContainer, helpTextEl, waText].forEach(el => el && (el.style.display="none"));
-      [notifBadge, waBadge].forEach(b => b && (b.style.display="none"));
-      clearTimers();
-      switch(activeMode){
+    // Visibility logic
+    function updateWidgetVisibility() {
+      const isMobile = window.innerWidth <= 600;
+
+      [chatBubble, waContainer, helpTextEl, waText].forEach(el => el && (el.style.display = "none"));
+      [notifBadge, waBadge].forEach(b => b && (b.style.display = "none"));
+      clearAllTimers();
+
+      switch(activeMode) {
         case "chatbot_only":
           initChatbotUI();
-          chatBubble.style.display="flex";
+          chatBubble.style.display = "flex";
           runChatbotTimers();
           break;
         case "whatsapp_only":
           initWhatsAppUI();
-          waContainer.style.display="flex";
+          waContainer.style.display = "flex";
           runWhatsAppTimers();
           break;
         case "both":
-          initChatbotUI(); initWhatsAppUI();
-          if(mobile){
-            waContainer.style.display="flex";
+          initChatbotUI();
+          initWhatsAppUI();
+          if (isMobile) {
+            waContainer.style.display = "flex";
             runWhatsAppTimers();
           } else {
-            chatBubble.style.display="flex";
+            chatBubble.style.display = "flex";
             runChatbotTimers();
           }
           break;
+        case "none":
+        default:
+          // nothing
+          break;
       }
-      if(mobile && chatContainer.classList.contains("active")){
+
+      if (isMobile && chatContainer.classList.contains("active")) {
         chatContainer.classList.remove("active");
-        chatContainer.style.display="none";
+        chatContainer.style.display = "none";
       }
     }
+
     updateWidgetVisibility();
-    window.addEventListener("resize", debounce(updateWidgetVisibility,250));
+    window.addEventListener("resize", debounce(updateWidgetVisibility, 250));
 
-    // 4) Fonctions de chat (appendMessage, sendMessage…) identiques au vôtre,
-    //    en remplaçant les booléens par la présence des contenus.
-    // … (copiez ici le reste de vos fonctions appendMessage, sendMessage, etc.)
-
-    // 5) Événements
-    if(activeMode==="chatbot_only"||activeMode==="both"){
-      chatBubble.addEventListener("click", ()=>{ /* ouvrir chat */ });
-      chatClose .addEventListener("click", ()=>{ /* fermer chat */ });
-      chatSend  .addEventListener("click", ()=>{ /* envoyer */ });
-      chatInput .addEventListener("keypress", e=>{ if(e.key==="Enter"){ /* envoyer */ } });
+    // Chat helpers
+    function scrollToBottom() {
+      setTimeout(() => {
+        if (chatBody) chatBody.scrollTop = chatBody.scrollHeight;
+      }, 50);
     }
-    if(activeMode==="whatsapp_only"||activeMode==="both"){
-      waButton.addEventListener("click", ()=> window.open(
-        `https://wa.me/?text=${encodeURIComponent(WhatsAppUIConfig.whatsappMessage)}`, "_blank"
-      ));
+    function appendMessage(text, type, noAnim = false) {
+      if (!chatBody) return;
+      const d = document.createElement("div");
+      d.classList.add(type === "user" ? "user-message" : "bot-message");
+      if (noAnim) d.style.animation = "none";
+      d.textContent = text;
+      chatBody.appendChild(d);
+      scrollToBottom();
+    }
+    function showTypingIndicator() {
+      if (!chatBody || chatBody.querySelector(".typing-indicator")) return;
+      const d = document.createElement("div");
+      d.classList.add("bot-message", "typing-indicator");
+      d.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+      chatBody.appendChild(d);
+      scrollToBottom();
+    }
+    function removeTypingIndicator() {
+      if (!chatBody) return;
+      const ind = chatBody.querySelector(".typing-indicator");
+      if (ind) chatBody.removeChild(ind);
+    }
+    function populateChatFromHistory() {
+      if (!chatBody) return;
+      chatBody.innerHTML = "";
+      if (chatHistory.length === 0) {
+        appendMessage("Bonjour...", "bot", true);
+      } else {
+        chatHistory.forEach(m => appendMessage(m.text, m.type, true));
+      }
+      scrollToBottom();
+    }
+    function sendMessage() {
+      if (!conversationId) {
+        console.error("ID manquant.");
+        appendMessage("Erreur session.", "bot");
+        return;
+      }
+      const txt = chatInput.value.trim();
+      if (!txt) return;
+      appendMessage(txt, "user");
+      chatHistory.push({ type: "user", text: txt });
+      saveChatHistory(chatHistory);
+      chatInput.value = "";
+      showTypingIndicator();
+      const payload = {
+        message: txt,
+        websiteConvId: conversationId,
+        original_url: ChatbotUIConfig.messageWebhookURL,
+        current_webpage: window.location.href
+      };
+      fetch(ChatbotUIConfig.messageWebhookURL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json","Accept": "application/json" },
+        body: JSON.stringify(payload)
+      })
+      .then(r => {
+        if (!r.ok) return r.text().then(t => Promise.reject(new Error(`HTTP ${r.status} - ${t||r.statusText}`)));
+        return r.json();
+      })
+      .then(d => {
+        removeTypingIndicator();
+        const reply = d.reply || d.message || "...";
+        appendMessage(reply, "bot");
+        chatHistory.push({ type: "bot", text: reply });
+        saveChatHistory(chatHistory);
+      })
+      .catch(e => {
+        console.error("Erreur msg:", e);
+        removeTypingIndicator();
+        appendMessage("Erreur tech.", "bot");
+        chatHistory.push({ type: "bot", text: "Erreur tech." });
+        saveChatHistory(chatHistory);
+      });
     }
 
-  }); // fin DOMContentLoaded
+    // Listeners
+    if (activeMode === "chatbot_only" || activeMode === "both") {
+      chatBubble.addEventListener("click", () => {
+        clearAllTimers();
+        helpTextEl.style.display = "none";
+        notifBadge.style.display = "none";
+        populateChatFromHistory();
+        chatContainer.style.display = "flex";
+        setTimeout(() => chatContainer.classList.add("active"), 10);
+        chatBubble.style.display = "none";
+        setTimeout(() => chatInput.focus(), 300);
+      });
+      chatClose.addEventListener("click", () => {
+        chatContainer.classList.remove("active");
+        setTimeout(() => {
+          chatContainer.style.display = "none";
+          updateWidgetVisibility();
+        }, 300);
+      });
+      chatSend.addEventListener("click", sendMessage);
+      chatInput.addEventListener("keypress", e => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      });
+    }
+    if (activeMode === "whatsapp_only" || activeMode === "both") {
+      waButton.addEventListener("click", () => {
+        clearAllTimers();
+        waText.style.display = "none";
+        waBadge.style.display = "none";
+        const url = `https://wa.me/?text=${encodeURIComponent(WhatsAppUIConfig.whatsappMessage)}`;
+        window.open(url, "_blank");
+      });
+    }
+  });
+
 })();
